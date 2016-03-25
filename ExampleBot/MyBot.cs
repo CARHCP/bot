@@ -75,7 +75,7 @@ namespace MyBot
                     piratewithT = piratewithT,
 
                     enemywith = enemy
-                  
+
 
                 };
             }
@@ -158,38 +158,44 @@ namespace MyBot
             }
             int remainingMoves = game.GetActionsPerTurn();
             List<PirateTactics> list = new List<PirateTactics>();
+
+
             if (status.shooter != null && remainingMoves > 0)
             {
                 int j = 0;
-                
                 PirateTactics tactics2 = new PirateTactics() { Pirate = status.shooter };
-                tactics2.Target = status.enemywith;
-                tactics2.FinalDestination = status.enemywith.Location;
-                tactics2.Moves = remainingMoves - 1; // keep one move for pirate with teasure
-                remainingMoves -= tactics2.Moves;
-                foreach(Pirate mypirate in game.AllMyPirates())
-                    foreach (Pirate enemypirate in game.AllEnemyPirates())
-                    {
-                        if (enemypirate.Location == mypirate.InitialLocation)
-                            tactics2.FinalDestination = mypirate.InitialLocation;
-                    }
-                List<Location> possibleLocations2 = game.GetSailOptions(tactics2.Pirate, tactics2.FinalDestination, tactics2.Moves);
-                tactics2.TempDestination = tactics2.Pirate.Location;
-
-                foreach (Location location3 in possibleLocations2)
+                Pirate theart = getThreat(game, status.shooter);
+                if (theart != null)
                 {
-                    if (occupiedlocation.Contains(location3))
-                        j++;
-                    else
+                    tactics2.defender = status.shooter;
+                }
+                else if (game.InRange(tactics2.Pirate, status.enemywith))
+                {
+                    tactics2.Target = status.enemywith;
+                }
+                else
+                {
+
+                    tactics2.FinalDestination = status.enemywith.Location;
+                    tactics2.Moves = remainingMoves - 1; // keep one move for pirate with teasure
+                    remainingMoves -= tactics2.Moves;
+
+                    List<Location> possibleLocations2 = game.GetSailOptions(tactics2.Pirate, tactics2.FinalDestination, tactics2.Moves);
+                    tactics2.TempDestination = tactics2.Pirate.Location;
+
+                    foreach (Location location3 in possibleLocations2)
                     {
-                        tactics2.TempDestination = location3;
-                        occupiedlocation.Add(location3);
-                        break;
+                        if (occupiedlocation.Contains(location3))
+                            j++;
+                        else
+                        {
+                            tactics2.TempDestination = location3;
+                            occupiedlocation.Add(location3);
+                            break;
+                        }
                     }
                 }
                 list.Add(tactics2);
-
-
             }
             if (status.piratewithT != null)
             {
@@ -201,26 +207,37 @@ namespace MyBot
                         break;
                     }
                     PirateTactics tactics1 = new PirateTactics() { Pirate = pirate };
-                    if (tactics1.Pirate == status.defenderr)
+
+                    Pirate theart = getThreat(game, pirate);
+                    if (theart != null)
                     {
-                        tactics1.eattaker = status.enemywithoutT;
+                        tactics1.defender = pirate;
                     }
-                    tactics1.FinalDestination = pirate.InitialLocation;
-                    tactics1.Moves = 1;
-                    remainingMoves -= tactics1.Moves;
-                    List<Location> possibleLocations1 = game.GetSailOptions(tactics1.Pirate, tactics1.FinalDestination, tactics1.Moves);
-                    tactics1.TempDestination = tactics1.Pirate.Location;
-                    foreach (Location location in possibleLocations1)
+                    else
                     {
-                        if (occupiedlocation.Contains(location))
-                            i++;
-                        else
+                        if (tactics1.Pirate == status.defenderr)
                         {
-                            tactics1.TempDestination = location;
-                            occupiedlocation.Add(location);
-                            break;
+                            tactics1.eattaker = status.enemywithoutT;
+                        }
+                        tactics1.FinalDestination = pirate.InitialLocation;
+                        tactics1.Moves = 1;
+                        remainingMoves -= tactics1.Moves;
+                        List<Location> possibleLocations1 = game.GetSailOptions(tactics1.Pirate, tactics1.FinalDestination, tactics1.Moves);
+                        tactics1.TempDestination = tactics1.Pirate.Location;
+                        foreach (Location location in possibleLocations1)
+                        {
+                            if (occupiedlocation.Contains(location))
+                                i++;
+                            else
+                            {
+                                tactics1.TempDestination = location;
+                                occupiedlocation.Add(location);
+                                break;
+                            }
                         }
                     }
+
+
 
                     list.Add(tactics1);
                 }
@@ -228,53 +245,66 @@ namespace MyBot
             if (status.Pirate != null && remainingMoves > 0)
             {
                 PirateTactics tactics = new PirateTactics() { Pirate = status.Pirate };
-                tactics.FinalDestination = status.Treasure.Location;
-                tactics.Moves = remainingMoves;
-                remainingMoves -= tactics.Moves;
-                List<Location> possibleLocations = game.GetSailOptions(tactics.Pirate, tactics.FinalDestination, tactics.Moves);
-                tactics.TempDestination = possibleLocations[0];
-                list.Add(tactics);
+                Pirate theart = getThreat(game, status.Pirate);
+                if (theart != null)
+                {
+                    tactics.defender = status.Pirate;
+                }
+                else
+                {
+                    tactics.FinalDestination = status.Treasure.Location;
+                    tactics.Moves = remainingMoves;
+                    remainingMoves -= tactics.Moves;
+                    List<Location> possibleLocations = game.GetSailOptions(tactics.Pirate, tactics.FinalDestination, tactics.Moves);
+                    tactics.TempDestination = possibleLocations[0];
+                    list.Add(tactics);
+                }
             }
             return list;
         }
+
+        private Pirate getThreat(IPirateGame game, Pirate mypirate)
+        {
+            Pirate threat = null;
+            foreach (Pirate enpirateaa in game.EnemyPiratesWithoutTreasures())
+            {
+                if (game.InRange(mypirate, enpirateaa) && enpirateaa.TurnsToSober == 0 && enpirateaa.ReloadTurns == 0)
+                {
+                    threat = enpirateaa;
+                }
+
+
+            }
+            return threat;
+        }
+
+
         private void TakeAction(IPirateGame game, List<PirateTactics> listTactis)
         {
             foreach (PirateTactics tactic in listTactis)
             {
                 if (tactic.Target != null)
                 {
-                    if (game.InRange(tactic.Pirate, tactic.Target))
-                    {
-                        game.Attack(tactic.Pirate, tactic.Target);
-                        continue;
-                    }
+                    game.Attack(tactic.Pirate, tactic.Target);
+
                 }
-                if (tactic.Pirate != null)
+                else if (tactic.defender != null)
                 {
-                    Pirate eattakerrr = null;
-                    foreach (Pirate enpirateaa in game.EnemyPiratesWithoutTreasures())
-                    {
-
-
-                        if (game.InRange(tactic.Pirate, enpirateaa) && enpirateaa.TurnsToSober == 0 && enpirateaa.ReloadTurns == 0)
-                        {
-                            eattakerrr = enpirateaa;
-                        }
-
-
-                    }
-                    if (eattakerrr != null && tactic.Pirate.DefenseReloadTurns == 0)
-                    {
-                        game.Defend(tactic.Pirate);
-                        continue;
-                    }
-                    else
-                        game.SetSail(tactic.Pirate, tactic.TempDestination);
+                    game.Defend(tactic.defender);
                 }
-
-
+                else
+                {
+                    game.SetSail(tactic.Pirate, tactic.TempDestination);
+                }
 
             }
+
+
+
+
+
         }
+
+
     }
 }
