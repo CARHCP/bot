@@ -14,6 +14,7 @@ namespace MyBot
             public Pirate enemywithoutT { get; set; }
             public Pirate defenderr { get; set; }
         }
+
         internal class PirateTactics
         {
             public Pirate Pirate { get; set; }
@@ -24,6 +25,7 @@ namespace MyBot
             public Pirate eattaker { get; set; }
             public Pirate defender { get; set; }
         }
+
         public void DoTurn(IPirateGame game)
         {
             BoardStatus status = GetBoardStatus(game);
