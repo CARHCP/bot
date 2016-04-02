@@ -28,6 +28,7 @@ namespace MyBot
 
         public void DoTurn(IPirateGame game)
         {
+
             BoardStatus status = GetBoardStatus(game);
             List<PirateTactics> tactics = AssignTargets(game, status);
             TakeAction(game, tactics);
@@ -44,41 +45,7 @@ namespace MyBot
             Treasure nearestTreasure = null;
             int min = 1000;
             int minn = 1000;
-            if (game.MyPirates().Count < 2)
-            {
-                if (game.EnemyPiratesWithTreasures()[0].TurnsToSober > 0)
-                {
-                    searcher = game.MyPirates()[0];
-                    foreach (Treasure treasure1 in game.Treasures())
-                    {
-                        nearestTreasure = treasure1;
 
-                    }
-
-                }
-                else
-                {
-                    shooter = game.MyPirates()[0];
-                    enemy = game.EnemyPirates()[0];
-                }
-
-                return new BoardStatus()
-
-                {
-
-                    shooter = shooter,
-
-                    Pirate = searcher,
-
-                    Treasure = nearestTreasure,
-
-                    piratewithT = piratewithT,
-
-                    enemywith = enemy
-
-
-                };
-            }
             foreach (Pirate enmpirate in game.EnemyPiratesWithTreasures())
             {
                 foreach (Pirate pirate in game.MyPiratesWithoutTreasures())
@@ -142,8 +109,22 @@ namespace MyBot
                 enemywithoutT = enemywithoutt
             };
         }
+        private bool isPirateInTactisList(List<PirateTactics> list, Pirate pirate)
+        {
+            foreach (PirateTactics tactics in list)
+            {
+                if (pirate == tactics.Pirate)
+                    return true;
+            }
+            return false;
+        }
         private List<PirateTactics> AssignTargets(IPirateGame game, BoardStatus status)
         {
+            List<PirateTactics> list = new List<PirateTactics>();
+
+            list.AddRange(defendfromthreat(game));
+
+
             Location location1 = null;
             HashSet<Location> occupiedlocation = new HashSet<Location>();
             foreach (Pirate enpirate in game.EnemyDrunkPirates())
@@ -157,10 +138,10 @@ namespace MyBot
                 occupiedlocation.Add(location1);
             }
             int remainingMoves = game.GetActionsPerTurn();
-            List<PirateTactics> list = new List<PirateTactics>();
 
 
-            if (status.shooter != null && remainingMoves > 0)
+
+            if (status.shooter != null && remainingMoves > 0 && !isPirateInTactisList(list, status.shooter))
             {
                 int j = 0;
                 PirateTactics tactics2 = new PirateTactics() { Pirate = status.shooter };
@@ -176,6 +157,7 @@ namespace MyBot
                 else
                 {
 
+
                     tactics2.FinalDestination = status.enemywith.Location;
                     tactics2.Moves = remainingMoves - 1; // keep one move for pirate with teasure
                     remainingMoves -= tactics2.Moves;
@@ -185,6 +167,10 @@ namespace MyBot
 
                     foreach (Location location3 in possibleLocations2)
                     {
+                        if (isLocationHasTreause(game, location3))
+                        {
+                            continue;
+                        }
                         if (occupiedlocation.Contains(location3))
                             j++;
                         else
@@ -194,15 +180,19 @@ namespace MyBot
                             break;
                         }
                     }
+
+
                 }
                 list.Add(tactics2);
             }
+
+            // isPirateInTactisList(list, status.piratewithT);
             if (status.piratewithT != null)
             {
                 int i = 0;
                 foreach (Pirate pirate in status.piratewithT)
                 {
-                    if (remainingMoves <= 0)
+                    if (remainingMoves <= 0 || isPirateInTactisList(list, pirate))
                     {
                         break;
                     }
@@ -242,7 +232,7 @@ namespace MyBot
                     list.Add(tactics1);
                 }
             }
-            if (status.Pirate != null && remainingMoves > 0)
+            if (status.Pirate != null && remainingMoves > 0 && !isPirateInTactisList(list, status.Pirate))
             {
                 PirateTactics tactics = new PirateTactics() { Pirate = status.Pirate };
                 Pirate theart = getThreat(game, status.Pirate);
@@ -252,15 +242,29 @@ namespace MyBot
                 }
                 else
                 {
+
+
                     tactics.FinalDestination = status.Treasure.Location;
                     tactics.Moves = remainingMoves;
                     remainingMoves -= tactics.Moves;
                     List<Location> possibleLocations = game.GetSailOptions(tactics.Pirate, tactics.FinalDestination, tactics.Moves);
                     tactics.TempDestination = possibleLocations[0];
                     list.Add(tactics);
+
+
                 }
             }
             return list;
+        }
+        private bool isLocationHasTreause(IPirateGame game, Location location)
+        {
+            foreach (Treasure treasure in game.Treasures())
+            {
+                if (treasure.Location == location)
+                    return true;
+            }
+            return false;
+
         }
 
         private Pirate getThreat(IPirateGame game, Pirate mypirate)
@@ -268,7 +272,7 @@ namespace MyBot
             Pirate threat = null;
             foreach (Pirate enpirateaa in game.EnemyPiratesWithoutTreasures())
             {
-                if (game.InRange(mypirate, enpirateaa) && enpirateaa.TurnsToSober == 0 && enpirateaa.ReloadTurns == 0)
+                if (game.InRange(mypirate, enpirateaa) && enpirateaa.TurnsToSober == 0 && enpirateaa.ReloadTurns == 0 && mypirate.DefenseReloadTurns == 0)
                 {
                     threat = enpirateaa;
                 }
@@ -278,30 +282,46 @@ namespace MyBot
             return threat;
         }
 
+        private List<PirateTactics> defendfromthreat(IPirateGame game)
+        {
+            List<PirateTactics> list = new List<PirateTactics>();
+            foreach (Pirate pirate in game.AllMyPirates())
+            {
+                PirateTactics tactics5 = new PirateTactics() { Pirate = pirate };
+                Pirate theart = getThreat(game, pirate);
+                if (theart != null)
+                {
+                    game.Debug(pirate.Id + " has threat from " + theart.Id);
+                    tactics5.defender = pirate;
+                    list.Add(tactics5);
+                }
 
+            }
+            return list;
+        }
         private void TakeAction(IPirateGame game, List<PirateTactics> listTactis)
         {
+            game.Debug("tactics number=" + listTactis.Count);
             foreach (PirateTactics tactic in listTactis)
             {
                 if (tactic.Target != null)
                 {
+                    game.Debug("Perate " + tactic.Pirate.Id + " attack " + tactic.Target.Id);
                     game.Attack(tactic.Pirate, tactic.Target);
 
                 }
                 else if (tactic.defender != null)
                 {
+                    game.Debug("Perate " + tactic.defender.Id + " make defend ");
                     game.Defend(tactic.defender);
                 }
                 else
                 {
+                    game.Debug("Perate " + tactic.Pirate.Id + " sail to  " + tactic.TempDestination.ToString());
                     game.SetSail(tactic.Pirate, tactic.TempDestination);
                 }
 
             }
-
-
-
-
 
         }
 
